@@ -1,0 +1,196 @@
+Rozbudowa backendu aplikacji Django - Etap 2
+1. Cel zadania
+Celem zadania było rozszerzenie funkcjonalności aplikacji o trzy moduły:
+
+System rozgraniczenia praw użytkowników (Admin vs Klient)
+Strona informacyjna maszyny (integracja z Wikipedia i YouTube)
+System płatności online (symulacja procesu płatności)
+2. Moduł 1: Rozgraniczenie praw użytkowników
+2.1. Opis funkcjonalności
+System dzieli użytkowników na dwie role z różnymi uprawnieniami:
+
+Rola	Uprawnienia
+Administrator	Pełny dostęp do panelu admina, statystyk, edycji maszyn
+Klient	Przeglądanie katalogu, rezerwacje, profil użytkownika
+2.2. Wykonane prace
+a) Modyfikacja nawigacji (templates/base.html)
+Dodano warunkowe wyświetlanie elementów menu:
+
+{% if user.is_staff %}
+<li class="nav-item">
+    <a class="nav-link text-warning" href="{% url 'admin_stats' %}">
+        <i class="fas fa-chart-bar me-1"></i>Statystyki
+    </a>
+</li>
+{% endif %}
+b) Dodanie przycisków edycji dla admina (templates/machines/catalog.html)
+{% if user.is_staff %}
+<a href="{% url 'admin:machines_machine_change' machine.pk %}" class="btn btn-warning">
+    <i class="fas fa-edit"></i>
+</a>
+{% endif %}
+c) Panel administratora na stronie szczegółów (templates/machines/machine_detail.html)
+Administrator widzi dodatkowy żółty pasek z opcjami edycji maszyny.
+
+2.3. Wykorzystane elementy Django
+Element	Zastosowanie
+user.is_staff	Sprawdzanie czy użytkownik jest administratorem
+{% if %}	Warunkowe wyświetlanie elementów HTML
+{% url 'admin:...' %}	Generowanie linków do panelu admina
+3. Moduł 2: Strona informacyjna (Wikipedia + YouTube)
+3.1. Opis funkcjonalności
+Każda maszyna może mieć przypisane:
+
+Link do artykułu na Wikipedia
+Link do filmu na YouTube (osadzony odtwarzacz)
+3.2. Wykonane prace
+a) Rozszerzenie modelu (machines/models.py)
+Dodano nowe pola do modelu Machine:
+
+wiki_url = models.URLField(max_length=500, blank=True, null=True, verbose_name='Link do Wikipedia')
+youtube_url = models.URLField(max_length=500, blank=True, null=True, verbose_name='Link do YouTube')
+b) Migracja bazy danych
+python manage.py makemigrations
+python manage.py migrate
+c) Modyfikacja szablonu szczegółów (templates/machines/machine_detail.html)
+Dodano sekcję "Dowiedz się więcej" z:
+
+Osadzonym odtwarzaczem YouTube (iframe)
+Przyciskiem do Wikipedia
+JavaScript do parsowania linków YouTube
+{% if machine.youtube_url %}
+<div class="ratio ratio-16x9">
+    <iframe src="https://www.youtube.com/embed/[VIDEO_ID]" allowfullscreen></iframe>
+</div>
+{% endif %}
+
+{% if machine.wiki_url %}
+<a href="{{ machine.wiki_url }}" target="_blank" class="btn btn-outline-primary">
+    <i class="fab fa-wikipedia-w me-2"></i>Czytaj na Wikipedia
+</a>
+{% endif %}
+3.3. Wykorzystane elementy Django
+Element	Zastosowanie
+models.URLField	Przechowywanie linków URL
+blank=True, null=True	Pola opcjonalne
+makemigrations / migrate	Aktualizacja struktury bazy danych
+JavaScript	Parsowanie linków YouTube i tworzenie iframe
+4. Moduł 3: System płatności online (symulacja)
+4.1. Opis funkcjonalności
+Symulacja procesu płatności kartą kredytową:
+
+Klient wypełnia formularz rezerwacji
+Przekierowanie na stronę płatności
+Wprowadzenie danych karty (symulacja)
+Potwierdzenie płatności i zmiana statusu rezerwacji
+4.2. Wykonane prace
+a) Utworzenie widoków (machines/views.py)
+def payment_form(request, pk):
+    rental = get_object_or_404(RentalRequest, pk=pk)
+    
+    if request.method == 'POST':
+        rental.status = 'potwierdzona'
+        rental.save()
+        messages.success(request, 'Płatność przebiegła pomyślnie!')
+        return redirect('payment_success', pk=rental.pk)
+    
+    context = {'rental': rental}
+    return render(request, 'machines/payment_form.html', context)
+
+
+def payment_success(request, pk):
+    rental = get_object_or_404(RentalRequest, pk=pk)
+    return render(request, 'machines/payment_success.html', {'rental': rental})
+b) Dodanie URL-i (machines/urls.py)
+path('platnosc/<int:pk>/', views.payment_form, name='payment_form'),
+path('platnosc-sukces/<int:pk>/', views.payment_success, name='payment_success'),
+c) Modyfikacja procesu rezerwacji (machines/views.py)
+Zmiana przekierowania po złożeniu rezerwacji:
+
+# Było:
+return redirect('rental_success', pk=rental.pk)
+
+# Jest:
+return redirect('payment_form', pk=rental.pk)
+d) Utworzenie szablonu płatności (templates/machines/payment_form.html)
+Formularz zawiera:
+
+Podsumowanie rezerwacji (maszyna, termin, kwota)
+Pole na numer karty (z automatycznym formatowaniem)
+Pole na datę ważności (MM/RR)
+Pole na kod CVV
+Pole na imię i nazwisko
+Ikony akceptowanych kart (Visa, Mastercard, Amex)
+Informacja o bezpieczeństwie
+e) Utworzenie strony sukcesu (templates/machines/payment_success.html)
+Strona potwierdzenia zawiera:
+
+Komunikat o pomyślnej płatności
+Szczegóły rezerwacji
+Status "Opłacona i potwierdzona"
+Linki do profilu i katalogu
+4.3. Wykorzystane elementy Django
+Element	Zastosowanie
+get_object_or_404()	Bezpieczne pobieranie obiektu z bazy
+request.method == 'POST'	Obsługa formularza
+model.save()	Zapisywanie zmian w bazie danych
+redirect()	Przekierowanie po akcji
+messages.success()	Wyświetlanie komunikatów
+{% csrf_token %}	Ochrona przed atakami CSRF
+4.4. Przepływ procesu płatności
+┌─────────────────┐
+│ Formularz       │
+│ rezerwacji      │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Strona          │
+│ płatności       │
+│ (dane karty)    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Zmiana statusu  │
+│ na "potwierdzona"│
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Strona sukcesu  │
+│ (potwierdzenie) │
+└─────────────────┘
+5. Podsumowanie zmodyfikowanych plików
+earthemporium/
+├── machines/
+│   ├── models.py         ← dodano pola: wiki_url, youtube_url
+│   ├── views.py          ← dodano: payment_form, payment_success
+│   │                        zmodyfikowano: rental_form (przekierowanie)
+│   └── urls.py           ← dodano: platnosc/, platnosc-sukces/
+│
+└── templates/
+    ├── base.html         ← dodano: warunkowe menu dla admina
+    └── machines/
+        ├── catalog.html       ← dodano: przycisk edycji dla admina
+        ├── machine_detail.html ← dodano: panel admina, YouTube, Wikipedia
+        ├── payment_form.html   ← NOWY - formularz płatności
+        └── payment_success.html ← NOWY - potwierdzenie płatności
+6. Wykorzystane technologie i wzorce
+Technologia	Zastosowanie
+Django ORM	Operacje na bazie danych
+Django Templates	Warunkowe wyświetlanie treści
+Django Messages	Komunikaty dla użytkownika
+Django Auth	System uprawnień (is_staff)
+JavaScript	Parsowanie URL YouTube, formatowanie pól
+Bootstrap 5	Stylowanie formularzy i przycisków
+Font Awesome	Ikony (karty płatnicze, YouTube, Wikipedia)
+7. Wnioski
+Zaimplementowane funkcjonalności pokazują praktyczne zastosowanie:
+
+System uprawnień - różnicowanie dostępu dla różnych typów użytkowników
+Rozszerzanie modeli - dodawanie nowych pól i migracja bazy danych
+Integracja z zewnętrznymi serwisami - osadzanie treści z YouTube
+Obsługa formularzy - walidacja i przetwarzanie danych
+Przepływ użytkownika - prowadzenie przez wieloetapowy proces (rezerwacja → płatność → potwierdzenie)
+Wszystkie moduły są w pełni funkcjonalne i zintegrowane z istniejącą strukturą aplikacji.
