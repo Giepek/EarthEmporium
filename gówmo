@@ -1,0 +1,74 @@
+Rozbudowa backendu aplikacji Django – Etap 2
+1. Cel
+
+Dodanie trzech funkcji:
+
+podział użytkowników (admin / klient)
+strona informacyjna maszyny (Wikipedia + YouTube)
+symulacja płatności online
+2. Role użytkowników
+Funkcjonalność
+Admin – zarządzanie aplikacją (edycja, statystyki)
+Klient – przeglądanie, rezerwacje
+Jak to zrobiono
+user.is_staff → sprawdzanie roli
+{% if %} → ukrywanie/pokazywanie elementów
+linki do panelu admina ({% url 'admin:...' %})
+Efekt
+Admin widzi dodatkowe opcje (edycja, statystyki)
+Klient widzi tylko podstawowe funkcje
+3. Strona informacyjna (Wikipedia + YouTube)
+Funkcjonalność
+link do artykułu Wikipedia
+osadzony film YouTube
+Jak to zrobiono
+dodano pola w modelu:
+wiki_url
+youtube_url
+wykonano migracje
+dodano sekcję w widoku szczegółów:
+iframe YouTube
+przycisk do Wikipedia
+Efekt
+użytkownik może zobaczyć dodatkowe informacje o maszynie
+4. System płatności (symulacja)
+Funkcjonalność
+użytkownik przechodzi przez proces płatności
+po „opłaceniu” rezerwacja zostaje potwierdzona
+Jak to zrobiono
+nowe widoki:
+payment_form
+payment_success
+zmiana przekierowania po rezerwacji → na płatność
+formularz płatności (dane karty – symulacja)
+zmiana statusu rezerwacji na „potwierdzona”
+Przepływ
+
+rezerwacja → płatność → potwierdzenie
+
+5. Zmodyfikowane pliki
+models.py → nowe pola (wiki, youtube)
+views.py → obsługa płatności
+urls.py → nowe ścieżki
+szablony:
+base.html (menu admina)
+catalog.html (edycja)
+machine_detail.html (info + media)
+payment_form.html
+payment_success.html
+6. Technologie
+Django (ORM, widoki, auth)
+Templates (warunki)
+Messages (komunikaty)
+JavaScript (YouTube, formatowanie)
+Bootstrap + Font Awesome (UI)
+7. Wnioski
+
+Projekt pokazuje:
+
+zarządzanie rolami użytkowników
+rozbudowę modeli i migracje
+integrację z zewnętrznymi treściami
+obsługę formularzy i procesów (flow użytkownika)
+
+👉 Wszystkie funkcje działają razem w jednym spójnym systemie.
